@@ -33,6 +33,9 @@ describe(`struct`, ()=>{
         });
     });
     describe(`異常系`, ()=>{
+        describe(`({v:非関数})`, ()=>{
+            test('1', ()=>assertThrow(TypeError, `Expected: a value that makes 'isT.o.fn.some(v)' return true.\nActual: Integer`, ()=>struct({v:1})));
+        });
         describe(`Primitive系`, ()=>{
             describe(`isT系`, ()=>{//, [isT.p.sym,Symbol(),1]
                 test.each([[isT.p.bln,false,1], [isT.p.int,0,0.1], [isT.p.fin,0,'1'], [isT.p.big,0n,1], [isT.p.str,'',1]])(`({a:%p})`, (v,d,a)=>{
