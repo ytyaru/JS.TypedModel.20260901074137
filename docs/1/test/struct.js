@@ -9,18 +9,14 @@ describe(`struct`, ()=>{
     test(`({})`, ()=>{
         const o = struct({});
         expect(struct({})).toBeInstanceOf(Object);
-//        console.log(o);
-        //expect(o).toBe(isT.o.obj(o));
     });
     describe(`正常系`, ()=>{
         describe(`Primitive系`, ()=>{
-            // , [isT.p.sym,Symbol(),Symbol.for('x')] シンボルだけは絶対に同じ値にならないため同様のテスト実施不能
             test.each([[isT.p.bln,false,true], [isT.p.int,0,1], [isT.p.fin,0,0.1], [isT.p.big,0n,1n], [isT.p.str,'','a']])(`({a:%p})`, (v,d,a)=>{
                 const o = struct({v:v});
                 expect(o).toBeInstanceOf(Object);
                 expect(o).toHaveProperty('v');
                 expect(o.v).toBe(d);
-//                console.log(o);
                 o.v = a;
                 expect(o.v).toBe(a);
             });
@@ -30,17 +26,95 @@ describe(`struct`, ()=>{
                 const o = struct({v:v});
                 expect(o).toBeInstanceOf(Object);
                 expect(o).toHaveProperty('v');
-//                expect(o.v).toBe(d);
                 expect(o.v).toEqual(d);
-//                console.log(o);
                 o.v = a;
-//                expect(o.v).toBe(a);
                 expect(o.v).toEqual(a);
             });
         });
-
-
     });
+    describe(`異常系`, ()=>{
+        describe(`Primitive系`, ()=>{
+            describe(`isT系`, ()=>{//, [isT.p.sym,Symbol(),1]
+                test.each([[isT.p.bln,false,1], [isT.p.int,0,0.1], [isT.p.fin,0,'1'], [isT.p.big,0n,1], [isT.p.str,'',1]])(`({a:%p})`, (v,d,a)=>{
+                    const o = struct({v:v});
+                    expect(o).toBeInstanceOf(Object);
+                    expect(o).toHaveProperty('v');
+                    expect(o.v).toBe(d);
+                    o.v = a;
+                    expect(o.v).toBe(d);// 異なる型の場合代入されず無視される
+                });
+            });
+            describe(`owT系`, ()=>{
+                test.each([[owT.p.bln,false,1], [owT.p.int,0,0.1], [owT.p.fin,0,'1'], [owT.p.big,0n,1], [owT.p.str,'',1]])(`({a:%p})`, (v,d,a)=>{
+                    const o = struct({v:v});
+                    expect(o).toBeInstanceOf(Object);
+                    expect(o).toHaveProperty('v');
+                    expect(o.v).toBe(d);
+//                    assertThrow(TypeError, `Expected: '${v.toString()}' like value.\nActual: String`, ()=>o.v = a);
+                    assertThrow(TypeError, /^Expected: /, ()=>o.v = a);
+                });
+            });
+        });
+        describe(`Object系`, ()=>{
+            describe(`isT系`, ()=>{//, [isT.p.sym,Symbol(),1]
+                test.each([[isT.o.obj,{},[]], [isT.o.ary,[],{}], [isT.o.cls,null,c], [isT.o.ins,null,C], [isT.o.des,null,{}], [isT.o.fn,null,cal.md[0][0]], [isT.o.md,null,cal.fn[0][0]]])(`({a:%p})`, (v,d,a)=>{
+                    const o = struct({v:v});
+                    expect(o).toBeInstanceOf(Object);
+                    expect(o).toHaveProperty('v');
+                    expect(o.v).toEqual(d);
+                    o.v = a;
+                    expect(o.v).toEqual(d);// 異なる型の場合代入されず無視される
+                });
+            });
+            describe(`owT系`, ()=>{
+                test.each([[owT.o.obj,{},[]], [owT.o.ary,[],{}], [owT.o.cls,null,c], [owT.o.ins,null,C], [owT.o.des,null,{}], [owT.o.fn,null,cal.md[0][0]], [owT.o.md,null,cal.fn[0][0]]])(`({a:%p})`, (v,d,a)=>{
+                    const o = struct({v:v});
+                    expect(o).toBeInstanceOf(Object);
+                    expect(o).toHaveProperty('v');
+                    expect(o.v).toEqual(d);
+//                    assertThrow(TypeError, `Expected: '${v.toString()}' like value.\nActual: String`, ()=>o.v = a);
+                    assertThrow(TypeError, /^Expected: /, ()=>o.v = a);
+                });
+            });
+        });
+    });
+    /*
+    test(`({a:isT.p.int}) set false String`, ()=>{// 異なる型の場合代入されず無視される
+        const o = struct({a:isT.p.int});
+        expect(o).toBeInstanceOf(Object);
+        expect(o).toHaveProperty('a');
+        expect(o.a).toBe(0);
+//        console.log(o);
+        o.a = '1';
+        expect(o.a).toBe(0); 
+    });
+    test(`({a:owT.p.int}) set TypeError String`, ()=>{// 異なる型の場合代入されず例外発生する
+        const o = struct({a:owT.p.int});
+        expect(o).toBeInstanceOf(Object);
+        expect(o).toHaveProperty('a');
+        expect(o.a).toBe(0);
+//        console.log(o);
+        assertThrow(TypeError, `Expected: '${isT.p.int.toString()}' like value.\nActual: String`, ()=>o.a = '1')
+    });
+    test(`({a:isT.p.int}) set false Finite`, ()=>{// 異なる型の場合代入されず無視される
+        const o = struct({a:isT.p.int});
+        expect(o).toBeInstanceOf(Object);
+        expect(o).toHaveProperty('a');
+        expect(o.a).toBe(0);
+//        console.log(o);
+        o.a = 0.1;
+        expect(o.a).toBe(0); 
+    });
+    test(`({a:owT.p.int}) set TypeError Finite`, ()=>{// 異なる型の場合代入されず例外発生する
+        const o = struct({a:owT.p.int});
+        expect(o).toBeInstanceOf(Object);
+        expect(o).toHaveProperty('a');
+        expect(o.a).toBe(0);
+//        console.log(o);
+        assertThrow(TypeError, `Expected: '${isT.p.int.toString()}' like value.\nActual: Finite`, ()=>o.a = 0.1)
+    });
+
+
 
     test(`({a:isT.p.bln})`, ()=>{
         const o = struct({a:isT.p.bln});
@@ -104,7 +178,7 @@ describe(`struct`, ()=>{
 //        console.log(o);
         assertThrow(TypeError, `Expected: '${isT.p.int.toString()}' like value.\nActual: Finite`, ()=>o.a = 0.1)
     });
-
+    */
 
 
 
