@@ -58,27 +58,13 @@ class Tys {
     if (to === "function")
       return FnTys.name(v);
     const name = this._name(v);
-    if (to === "object")
-      return this._obj(v, name);
-    if (name === "Number")
-      return this._num(v, name);
-    return name;
+    return to === "object" ? this._obj(v, name) : name === "Number" ? this._num(v, name) : name;
   }
   static _name(v) {
     return Object.prototype.toString.call(v).slice(8, -1);
   }
   static _num(v, name) {
-    if (Number.isNaN(v))
-      return "NaN";
-    if (v === Infinity)
-      return "Infinity";
-    if (v === -Infinity)
-      return "-Infinity";
-    if (Number.isSafeInteger(v))
-      return "Integer";
-    if (Number.isFinite(v))
-      return "Finite";
-    return name;
+    return Number.isNaN(v) ? "NaN" : v === Infinity ? "Infinity" : v === -Infinity ? "-Infinity" : Number.isSafeInteger(v) ? "Integer" : Number.isFinite(v) ? "Finite" : name;
   }
   static _obj(v, name) {
     const proto = Object.getPrototypeOf(v);
@@ -108,13 +94,7 @@ class Tys {
     return FnTys._isEs6Cls(ctor);
   }
   static _isEs5Ins(v, proto, ctor) {
-    if (typeof ctor !== "function")
-      return false;
-    if (ctor === Object || ctor === Function)
-      return false;
-    if (FnTys._isEs6Cls(ctor) || FnTys._isNative(ctor, Function.prototype.toString.call(ctor)))
-      return false;
-    return FnTys._isEs5Cls(ctor) || proto !== Object.prototype && proto !== Function.prototype;
+    return typeof ctor !== "function" || (ctor === Object || ctor === Function) || (FnTys._isEs6Cls(ctor) || FnTys._isNative(ctor, Function.prototype.toString.call(ctor))) ? false : FnTys._isEs5Cls(ctor) || proto !== Object.prototype && proto !== Function.prototype;
   }
 }
 
@@ -130,21 +110,10 @@ class DesTys {
     const hasWritable = keys.includes("writable");
     const hasGet = keys.includes("get") && v.get !== undefined;
     const hasSet = keys.includes("set") && v.set !== undefined;
-    if ((hasValue || hasWritable) && (hasGet || hasSet))
-      return false;
-    if (hasGet && typeof v.get !== "function" && v.get !== undefined)
-      return false;
-    if (hasSet && typeof v.set !== "function" && v.set !== undefined)
-      return false;
-    if (!hasValue && !hasWritable && !hasGet && !hasSet)
-      return false;
-    return this._naming(v, hasValue, hasGet, hasSet);
+    return (hasValue || hasWritable) && (hasGet || hasSet) || hasGet && typeof v.get !== "function" && v.get !== undefined || hasSet && typeof v.set !== "function" && v.set !== undefined || !hasValue && !hasWritable && !hasGet && !hasSet ? false : this._naming(v, hasValue, hasGet, hasSet);
   }
   static _naming(v, hasValue, hasGet, hasSet) {
-    if (hasGet || hasSet) {
-      return hasGet && hasSet ? "Accessor" : hasGet ? "Getter" : "Setter";
-    }
-    return hasValue && typeof v.value === "function" ? "Method" : "Value";
+    return hasGet || hasSet ? hasGet && hasSet ? "Accessor" : hasGet ? "Getter" : "Setter" : hasValue && typeof v.value === "function" ? "Method" : "Value";
   }
   static name(v) {
     const type = this.is(v);
@@ -206,10 +175,7 @@ class FnTys {
     return !v.hasOwnProperty("prototype") && s.includes("=>");
   }
   static _isMethod(v, s) {
-    const cleanSrc = s.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "");
-    if (/\bfunction\b/.test(cleanSrc))
-      return false;
-    return !s.includes("=>");
+    return /\bfunction\b/.test(s.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "")) ? false : !s.includes("=>");
   }
 }
 
@@ -229,13 +195,7 @@ class FnAgTys {
     const cleanStr = s.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "").trim();
     const isAsync = cleanStr.startsWith("async") || cleanStr.includes("async ");
     const isGenerator = s.includes("*");
-    if (isAsync && isGenerator)
-      return "AsyncGenerator";
-    if (isGenerator)
-      return "Generator";
-    if (isAsync)
-      return "Async";
-    return "";
+    return isAsync && isGenerator ? "AsyncGenerator" : isGenerator ? "Generator" : isAsync ? "Async" : "";
   }
 }
 

@@ -6,18 +6,22 @@ export class Tys {// Type string name
         const to = typeof v;
         if ('function'===to) return FnTys.name(v);
         const name = this._name(v);
-        if ('object'===to) return this._obj(v, name);
-        if ('Number'===name) return this._num(v, name);
-        return name;
+        return 'object'===to ? this._obj(v, name) : 'Number'===name ? this._num(v, name) : name;
+//        if ('object'===to) return this._obj(v, name);
+//        if ('Number'===name) return this._num(v, name);
+//        return name;
     }
     static _name(v) {return Object.prototype.toString.call(v).slice(8, -1);}
     static _num(v, name) {// "number"でなく以下のようにする。
+        return Number.isNaN(v) ? 'NaN' : Infinity===v ? 'Infinity' : -Infinity===v ? '-Infinity' : Number.isSafeInteger(v) ? 'Integer' : Number.isFinite(v) ? 'Finite' : name;
+        /*
         if (Number.isNaN(v)) return 'NaN';
         if (Infinity===v) return 'Infinity';
         if (-Infinity===v) return '-Infinity';
         if (Number.isSafeInteger(v)) return 'Integer';
         if (Number.isFinite(v)) return 'Finite';
         return name; // ここは通らないはず
+        */
     }
     static _obj(v, name) {
         const proto = Object.getPrototypeOf(v);
@@ -39,11 +43,14 @@ export class Tys {// Type string name
         return FnTys._isEs6Cls(ctor);
     }
     static _isEs5Ins(v, proto, ctor) {
+        return typeof ctor !== 'function' || (ctor === Object || ctor === Function) || (FnTys._isEs6Cls(ctor) || FnTys._isNative(ctor, Function.prototype.toString.call(ctor))) ? false : (FnTys._isEs5Cls(ctor) || (proto !== Object.prototype && proto !== Function.prototype));
+        /*
         if (typeof ctor !== 'function') return false;
         if (ctor === Object || ctor === Function) return false;
         if (FnTys._isEs6Cls(ctor) || FnTys._isNative(ctor, Function.prototype.toString.call(ctor))) return false;
         // ES5疑似クラス、または匿名ES5疑似クラスインスタンスの要件を満たすか
         return FnTys._isEs5Cls(ctor) || (proto !== Object.prototype && proto !== Function.prototype);
+        */
     }
 }
 class DesTys {
@@ -63,6 +70,16 @@ class DesTys {
         const hasGet = keys.includes('get') && v.get !== undefined;
         const hasSet = keys.includes('set') && v.set !== undefined;
 
+        return (
+        // データ記述子とアクセサ記述子の混在不可ルール
+            ((hasValue || hasWritable) && (hasGet || hasSet))
+        // 型チェック
+        || (hasGet && typeof v.get !== 'function' && v.get !== undefined)
+        || (hasSet && typeof v.set !== 'function' && v.set !== undefined)
+        // いずれのキーも無ければディスクリプタではない
+        || (!hasValue && !hasWritable && !hasGet && !hasSet)
+        ) ? false : this._naming(v, hasValue, hasGet, hasSet);
+        /*
         // データ記述子とアクセサ記述子の混在不可ルール
         if ((hasValue || hasWritable) && (hasGet || hasSet)) return false;
 
@@ -74,12 +91,14 @@ class DesTys {
         if (!hasValue && !hasWritable && !hasGet && !hasSet) return false;
 
         return this._naming(v, hasValue, hasGet, hasSet);
+        */
     }
     static _naming(v, hasValue, hasGet, hasSet) {
         // 1. アクセサ系 (get または set がある場合)
-        if (hasGet || hasSet) {return (hasGet && hasSet) ? 'Accessor' : (hasGet ? 'Getter' : 'Setter');}
+//        if (hasGet || hasSet) {return (hasGet && hasSet) ? 'Accessor' : (hasGet ? 'Getter' : 'Setter');}
         // 2. データ系 (value または writable がある場合)
-        return (hasValue && typeof v.value === 'function') ? 'Method' : 'Value';
+//        return (hasValue && typeof v.value === 'function') ? 'Method' : 'Value';
+        return (hasGet || hasSet) ? ((hasGet && hasSet) ? 'Accessor' : (hasGet ? 'Getter' : 'Setter')) : ((hasValue && typeof v.value === 'function') ? 'Method' : 'Value');
     }
     static name(v) {
         const type = this.is(v);
@@ -140,6 +159,7 @@ class FnTys {// クラスと関数を分け、関数を更に細分化する
         return !v.hasOwnProperty('prototype') && s.includes('=>');
     }
     static _isMethod(v,s) {
+        /*
         // コメント等を除外した実質的なコード文字列を作成
         const cleanSrc = s.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '');
 
@@ -149,6 +169,8 @@ class FnTys {// クラスと関数を分け、関数を更に細分化する
 
         // 2. 'function' を含まない、かつアロー関数（=>）でもない関数は、仕様上「メソッド」しか残りません。
         return !s.includes('=>');
+        */
+        return /\bfunction\b/.test(s.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '')) ? false : !s.includes('=>');
     }
 }
 class FnAgTys {
@@ -168,11 +190,14 @@ class FnAgTys {
         const isAsync = cleanStr.startsWith('async') || cleanStr.includes('async ');
         const isGenerator = s.includes('*');
 
+        /*
         if (isAsync && isGenerator) return 'AsyncGenerator';
         if (isGenerator) return 'Generator';
         if (isAsync) return 'Async';
 
         return '';
+        */
+        return isAsync && isGenerator ? 'AsyncGenerator' : isGenerator ? 'Generator' : isAsync ? 'Async' : '';
     }
 }
 

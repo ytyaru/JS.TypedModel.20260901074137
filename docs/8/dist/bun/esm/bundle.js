@@ -1,5 +1,5 @@
 // @bun
-// src/tys.js
+// ../lib/ist/dist/bun/esm/bundle.js
 class Tys {
   static name(v) {
     if (v === null)
@@ -153,7 +153,6 @@ class FnAgTys {
   }
 }
 
-// src/fn-obj.js
 class FnObj {
   static mk(someFn, { getters = {}, methods = {} } = {}) {
     const fn = function(...args) {
@@ -209,8 +208,6 @@ Actual: ${Tys.name(v)}`);
     return this.mk(someFn, { getters, methods });
   }
 }
-
-// src/typ.js
 var Typis = FnObj.mk((v) => "bln int fin big str sym".split(" ").some((n) => Typis[n](v)), {
   methods: {
     bln: (v) => typeof v === "boolean",
@@ -221,8 +218,6 @@ var Typis = FnObj.mk((v) => "bln int fin big str sym".split(" ").some((n) => Typ
     sym: (v) => typeof v === "symbol"
   }
 });
-
-// src/tyo.js
 var TyoisArrFn = FnObj.mk((v) => Tys.name(v).endsWith("ArrowFunction"), {
   methods: {
     a: (v) => Tys.name(v) === "AsyncArrowFunction",
@@ -294,8 +289,6 @@ var Tyois = FnObj.mk((v) => {
     ary: (v) => Array.isArray(v)
   }
 });
-
-// src/tyd.js
 var TydisNum = FnObj.mk((v) => "nan inf ofin".split(" ").some((n) => TydisNum[n](v)), {
   methods: {
     nan: (v) => Number.isNaN(v),
@@ -323,8 +316,6 @@ var Tydis = FnObj.mk((v) => "und nul".split(" ").some((n) => Tydis[n](v)) || "nu
     nul: (v) => v === null
   }
 });
-
-// src/main.js
 var owTp = FnObj.mkEr(Typis, "isT.p.some(v)");
 var owTo = FnObj.mkEr(Tyois, "isT.o.some(v)");
 var owTd = FnObj.mkEr(Tydis, "isT.d.some(v)");
@@ -351,8 +342,126 @@ var owT = Object.freeze({
   }
 });
 var tof = (v) => Tys.name(v);
+
+// src/dfv.js
+var dfv = (validator) => {
+  if ([isT.p, isT.p.bln, owT.p, owT.p.bln].some((c) => c === validator))
+    return false;
+  if ([isT.p.int, isT.p.fin, owT.p.int, owT.p.fin].some((c) => c === validator))
+    return 0;
+  if (isT.p.big === validator || owT.p.big === validator)
+    return 0n;
+  if (isT.p.str === validator || owT.p.str === validator)
+    return "";
+  if (isT.p.sym === validator || owT.p.sym === validator)
+    return Symbol();
+  if (isT.o.ary === validator || owT.o.ary === validator)
+    return [];
+  if (isT.o.obj === validator || owT.o.obj === validator)
+    return {};
+  return null;
+};
+
+// src/struct.js
+var getDefaultValue = (validator) => isT.o.obj(validator) ? makeBaseObj(validator) : dfv(validator);
+var makeBaseObj = (o) => {
+  const base = {};
+  for (let [name, validator] of Object.entries(o)) {
+    base[name] = getDefaultValue(validator);
+  }
+  return base;
+};
+var createFreezeSetter = () => () => {
+  throw new Error("Cannot assign to a frozen struct.");
+};
+var createPrimitiveSetter = (baseData, name, validator) => (v) => {
+  if (validator(v)) {
+    baseData[name] = v;
+  }
+};
+var createSealUndefinedHandler = (k) => {
+  throw new Error(`Property "${k}" is not defined in the schema.`);
+};
+var validateNestedAssignment = (validator, v) => {
+  owT.o.obj(v);
+  const schemaKeys = Object.keys(validator);
+  for (const k of Object.keys(v)) {
+    if (!schemaKeys.includes(k)) {
+      createSealUndefinedHandler(k);
+    }
+  }
+  for (const k of schemaKeys) {
+    if (k in v) {
+      const subValidator = validator[k];
+      const subVal = v[k];
+      if (isT.o.obj(subValidator)) {
+        validateNestedAssignment(subValidator, subVal);
+      } else {
+        owT.o.fn(subValidator);
+        if (!subValidator(subVal)) {
+          throw new Error(`Invalid value for property "${k}"`);
+        }
+      }
+    }
+  }
+};
+var createNestedSetter = (validator, nestedStruct) => (v) => {
+  validateNestedAssignment(validator, v);
+  const schemaKeys = Object.keys(validator);
+  for (const k of schemaKeys) {
+    if (k in v) {
+      nestedStruct[k] = v[k];
+    }
+  }
+};
+var createGetter = (baseData, name, validator, nestedStruct) => isT.o.obj(validator) ? () => nestedStruct : () => baseData[name];
+var makeDescriptor = (baseData, structObj, name, validator, mode) => {
+  const isNested = isT.o.obj(validator);
+  const nestedStruct = isNested ? createStruct(validator, baseData[name], mode) : null;
+  if (isNested) {
+    structObj[name] = nestedStruct;
+  }
+  const getter = createGetter(baseData, name, validator, nestedStruct);
+  const setter = mode === "freeze" ? createFreezeSetter() : isNested ? createNestedSetter(validator, nestedStruct) : createPrimitiveSetter(baseData, name, validator);
+  return {
+    get: getter,
+    set: setter,
+    configurable: false,
+    enumerable: true
+  };
+};
+var createStruct = (o, existingBase = null, mode = "seal") => {
+  owT.o.obj(o);
+  for (const validator of Object.values(o)) {
+    if (!isT.o.obj(validator)) {
+      owT.o.fn(validator);
+    }
+  }
+  const base = { _: existingBase || makeBaseObj(o) };
+  const structObj = {};
+  Object.defineProperty(structObj, "_", {
+    value: base._,
+    writable: false,
+    configurable: false,
+    enumerable: false
+  });
+  for (let [name, validator] of Object.entries(o)) {
+    Object.defineProperty(structObj, name, makeDescriptor(base._, structObj, name, validator, mode));
+  }
+  Object.seal(structObj);
+  Object.seal(base._);
+  if (mode === "freeze") {
+    Object.freeze(structObj);
+    Object.freeze(base._);
+  }
+  return structObj;
+};
+var struct = (o) => createStruct(o, null, "seal");
+struct.freeze = (o) => createStruct(o, null, "freeze");
 export {
   tof,
+  struct,
   owT,
-  isT
+  isT,
+  dfv
 };
