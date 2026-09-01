@@ -180,6 +180,7 @@ describe(`struct`, ()=>{
         });
     });
 });
+/*
 describe(`struct.seal`, ()=>{
     test(`Nest系`, ()=>{
         const o = struct.seal({a:{b:{c:isT.p.int}}});
@@ -199,6 +200,7 @@ describe(`struct.seal`, ()=>{
 //        expect(o.a.b.d).toBe(2);
     });
 });
+*/
 describe(`struct.freeze`, ()=>{
     test(`Nest系`, ()=>{
         const o = struct.freeze({a:{b:{c:isT.p.int}}});

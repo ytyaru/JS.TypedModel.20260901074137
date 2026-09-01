@@ -64,6 +64,7 @@ const createNestedSetter = (validator, nestedStruct) => (v) => {
     }
 };
 
+/*
 // 2. ゲッター生成（実行時分岐なし）
 const createGetter = (baseData, name, validator, nestedStruct) => {
     if (isT.o.obj(validator)) {
@@ -71,6 +72,8 @@ const createGetter = (baseData, name, validator, nestedStruct) => {
     }
     return () => baseData[name];
 };
+*/
+const createGetter = (baseData, name, validator, nestedStruct) => isT.o.obj(validator) ?  (() => nestedStruct) : (() => baseData[name]);
 
 // 3. ディスクリプタ生成
 const makeDescriptor = (baseData, structObj, name, validator, mode) => {
@@ -84,6 +87,7 @@ const makeDescriptor = (baseData, structObj, name, validator, mode) => {
     const getter = createGetter(baseData, name, validator, nestedStruct);
     
     // 初期化時にセッターを完全に決定。実行時は分岐ゼロでそのまま呼ぶだけにする。
+    /*
     let setter;
     if (mode === 'freeze') {
         setter = createFreezeSetter();
@@ -92,6 +96,8 @@ const makeDescriptor = (baseData, structObj, name, validator, mode) => {
     } else {
         setter = createPrimitiveSetter(baseData, name, validator);
     }
+    */
+    const setter = (mode === 'freeze') ? createFreezeSetter() : isNested ? createNestedSetter(validator, nestedStruct) : createPrimitiveSetter(baseData, name, validator);
 
     return {
         get: getter,
@@ -135,5 +141,5 @@ const createStruct = (o, existingBase = null, mode = 'seal') => {
 };
 
 export const struct = (o) => createStruct(o, null, 'seal');
-struct.seal = (o) => createStruct(o, null, 'seal');
+//struct.seal = (o) => createStruct(o, null, 'seal');
 struct.freeze = (o) => createStruct(o, null, 'freeze');

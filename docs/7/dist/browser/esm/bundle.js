@@ -384,8 +384,6 @@ var tof = (v) => Tys.name(v);
 
 // src/dfv.js
 var dfv = (validator) => {
-  if (isT.o.obj(validator))
-    return makeBaseObj(validator);
   if ([isT.p, isT.p.bln, owT.p, owT.p.bln].some((c) => c === validator))
     return false;
   if ([isT.p.int, isT.p.fin, owT.p.int, owT.p.fin].some((c) => c === validator))
@@ -404,27 +402,8 @@ var dfv = (validator) => {
 };
 
 // src/struct.js
-var isSchema = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
-var getDefaultValue = (validator) => {
-  if (isSchema(validator))
-    return makeBaseObj2(validator);
-  if ([isT.p, isT.p.bln, owT.p, owT.p.bln].some((c) => c === validator))
-    return false;
-  if ([isT.p.int, isT.p.fin, owT.p.int, owT.p.fin].some((c) => c === validator))
-    return 0;
-  if (isT.p.big === validator || owT.p.big === validator)
-    return 0n;
-  if (isT.p.str === validator || owT.p.str === validator)
-    return "";
-  if (isT.p.sym === validator || owT.p.sym === validator)
-    return Symbol();
-  if (isT.o.ary === validator || owT.o.ary === validator)
-    return [];
-  if (isT.o.obj === validator || owT.o.obj === validator)
-    return {};
-  return null;
-};
-var makeBaseObj2 = (o) => {
+var getDefaultValue = (validator) => isT.o.obj(validator) ? makeBaseObj(validator) : dfv(validator);
+var makeBaseObj = (o) => {
   const base = {};
   for (let [name, validator] of Object.entries(o)) {
     base[name] = getDefaultValue(validator);
@@ -434,7 +413,7 @@ var makeBaseObj2 = (o) => {
 var createFreezeSetter = () => () => {
   throw new Error("Cannot assign to a frozen struct.");
 };
-var createDataSetter = (baseData, name, validator) => (v) => {
+var createPrimitiveSetter = (baseData, name, validator) => (v) => {
   if (validator(v)) {
     baseData[name] = v;
   }
@@ -442,51 +421,50 @@ var createDataSetter = (baseData, name, validator) => (v) => {
 var createSealUndefinedHandler = (k) => {
   throw new Error(`Property "${k}" is not defined in the schema.`);
 };
-var createNestedSetter = (validator) => (v, nestedStruct) => {
+var validateNestedAssignment = (validator, v) => {
   owT.o.obj(v);
+  const schemaKeys = Object.keys(validator);
+  for (const k of Object.keys(v)) {
+    if (!schemaKeys.includes(k)) {
+      createSealUndefinedHandler(k);
+    }
+  }
+  for (const k of schemaKeys) {
+    if (k in v) {
+      const subValidator = validator[k];
+      const subVal = v[k];
+      if (isT.o.obj(subValidator)) {
+        validateNestedAssignment(subValidator, subVal);
+      } else {
+        owT.o.fn(subValidator);
+        if (!subValidator(subVal)) {
+          throw new Error(`Invalid value for property "${k}"`);
+        }
+      }
+    }
+  }
+};
+var createNestedSetter = (validator, nestedStruct) => (v) => {
+  validateNestedAssignment(validator, v);
   const schemaKeys = Object.keys(validator);
   for (const k of schemaKeys) {
     if (k in v) {
       nestedStruct[k] = v[k];
     }
   }
-  for (const k of Object.keys(v)) {
-    if (!schemaKeys.includes(k)) {
-      createSealUndefinedHandler(k);
-    }
-  }
 };
-var createSetter = (validator, mode) => {
-  if (mode === "freeze") {
-    return createFreezeSetter();
-  }
-  if (isSchema(validator)) {
-    return createNestedSetter(validator);
-  }
-  return null;
-};
-var createGetter = (baseData, name, validator, nestedStruct) => {
-  if (isSchema(validator)) {
-    return () => nestedStruct;
-  }
-  return () => baseData[name];
-};
+var createGetter = (baseData, name, validator, nestedStruct) => isT.o.obj(validator) ? () => nestedStruct : () => baseData[name];
 var makeDescriptor = (baseData, structObj, name, validator, mode) => {
-  const isNested = isSchema(validator);
+  const isNested = isT.o.obj(validator);
   const nestedStruct = isNested ? createStruct(validator, baseData[name], mode) : null;
   if (isNested) {
     structObj[name] = nestedStruct;
   }
   const getter = createGetter(baseData, name, validator, nestedStruct);
-  const setter = isNested ? createSetter(validator, mode) : createDataSetter(baseData, name, validator);
+  const setter = mode === "freeze" ? createFreezeSetter() : isNested ? createNestedSetter(validator, nestedStruct) : createPrimitiveSetter(baseData, name, validator);
   return {
     get: getter,
-    set(v) {
-      if (mode === "freeze") {
-        createFreezeSetter()();
-      }
-      setter(v, isNested ? nestedStruct : undefined);
-    },
+    set: setter,
     configurable: false,
     enumerable: true
   };
@@ -494,11 +472,11 @@ var makeDescriptor = (baseData, structObj, name, validator, mode) => {
 var createStruct = (o, existingBase = null, mode = "seal") => {
   owT.o.obj(o);
   for (const validator of Object.values(o)) {
-    if (!isSchema(validator)) {
+    if (!isT.o.obj(validator)) {
       owT.o.fn(validator);
     }
   }
-  const base = { _: existingBase || makeBaseObj2(o) };
+  const base = { _: existingBase || makeBaseObj(o) };
   const structObj = {};
   Object.defineProperty(structObj, "_", {
     value: base._,
@@ -518,7 +496,6 @@ var createStruct = (o, existingBase = null, mode = "seal") => {
   return structObj;
 };
 var struct = (o) => createStruct(o, null, "seal");
-struct.seal = (o) => createStruct(o, null, "seal");
 struct.freeze = (o) => createStruct(o, null, "freeze");
 export {
   tof,
